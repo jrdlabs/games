@@ -42,7 +42,7 @@ async function refresh() {
   catch (e) { $('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
   finally { refreshing = false; }
 }
-function renderBusy() { document.querySelectorAll('button').forEach(b => b.disabled = busy || !sessionReady); }
+function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
 function render() {
   if (!state) return;
   $('home').hidden = true; $('room').hidden = false;
@@ -114,4 +114,3 @@ try { await ensureAnonymousSession(); sessionReady = true; renderBusy(); $('conn
 catch(e) { error(`Unable to connect: ${e.message}. Reload to try again.`); }
 setInterval(refresh, 5000);
 window.addEventListener('online', refresh); document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');

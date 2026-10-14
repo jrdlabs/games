@@ -8,7 +8,6 @@ let currentRoom;
 let unsubscribeLobby;
 let presenceTimer;
 let stateTimer;
-let installPrompt;
 let gameActionBusy = false;
 let refreshInFlight = false;
 let autoAdvanceTimer;
@@ -309,21 +308,3 @@ document.querySelector("#tally-tab").addEventListener("click", () => {
 });
 
 initialize();
-
-window.addEventListener("beforeinstallprompt", (event) => {
-  event.preventDefault();
-  installPrompt = event;
-  document.querySelector("#install-app").hidden = false;
-});
-
-document.querySelector("#install-app").addEventListener("click", async () => {
-  if (!installPrompt) return;
-  installPrompt.prompt();
-  await installPrompt.userChoice;
-  installPrompt = null;
-  document.querySelector("#install-app").hidden = true;
-});
-
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => navigator.serviceWorker.register("./service-worker.js"));
-}

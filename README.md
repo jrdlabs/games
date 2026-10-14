@@ -14,6 +14,8 @@ Old Trumps invitations using `/?room=CODE` still redirect to Trumps. New invites
 
 ## Local preview
 
+The hub, Trumps, and Dominoes share one installable **Joel’s Game Room** app. Every page links the same manifest and includes an Install Game Room button. Supported browsers offer their native prompt; other browsers show installation instructions. The button is hidden when running as an installed app. Installation opens the hub so both games are available from one icon. The shared installation handler lives in `js/install.js`; the cache version includes its assets.
+
 Run `node dev-server.cjs` from this directory and open http://127.0.0.1:8080/ . Gameplay requires an internet connection to Supabase. Cached pages do not enable offline turns.
 
 ## Supabase installation
