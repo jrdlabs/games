@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const manifest = JSON.parse(fs.readFileSync('manifest.webmanifest','utf8'));
 assert.equal(manifest.start_url, './');
 assert.equal(manifest.scope, './');
-for (const file of ['index.html','trumps.html','dominoes.html']) {
+for (const file of ['index.html','trumps.html','dominoes.html','admin.html']) {
   const html = fs.readFileSync(file,'utf8');
   assert(html.includes('./manifest.webmanifest'));
   assert(html.includes('data-install'));
