@@ -42,7 +42,7 @@ async function refresh() {
   catch (e) { $('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
   finally { refreshing = false; }
 }
-function renderBusy() { document.querySelectorAll('button').forEach(b => b.disabled = busy || !sessionReady); }
+function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
 function render() {
   if (!state) return;
   $('home').hidden = true; $('room').hidden = false;
@@ -63,12 +63,13 @@ function render() {
   $('board').replaceChildren(...board.map(t => tileNode(t)));
   $('ends').textContent = board.length ? `Open ends: ${board[0][0]} and ${board.at(-1)[1]}` : '';
   $('empty').hidden = board.length > 0;
+  $('empty').textContent = state.handNumber === 1 ? 'Double-six opens the first hand' : `${state.players[state.turn].name} opens with any tile`;
   $('hand').replaceChildren(...state.hand.map(tile => {
-    const el = tileNode(tile, true), valid = canPlay(tile, board);
+    const el = tileNode(tile, true), valid = canPlay(tile, board, state.handNumber);
     el.disabled = busy || !myTurn || !valid; if (myTurn && valid) el.classList.add('playable');
     el.onclick = () => { selected = tile; showChoice(); }; return el;
   }));
-  $('pass').disabled = busy || !myTurn || state.hand.some(t => canPlay(t, board));
+  $('pass').disabled = busy || !myTurn || state.hand.some(t => canPlay(t, board, state.handNumber));
   if (!myTurn) selected = null;
   showChoice();
   $('next').hidden = state.phase !== 'hand_complete' || state.me !== 0;
@@ -87,7 +88,7 @@ function showChoice() {
   $('choice').hidden = !selected;
   if (!selected) return;
   $('choice-text').textContent = `Play ${selected.join('–')} on which end?`;
-  for (const end of ['left','right']) $(end).disabled = busy || !fits(selected, state.board, end);
+  for (const end of ['left','right']) $(end).disabled = busy || !fits(selected, state.board, end, state.handNumber);
 }
 $('entry').onsubmit = e => {
   e.preventDefault(); const action = e.submitter.value;
@@ -114,4 +115,3 @@ try { await ensureAnonymousSession(); sessionReady = true; renderBusy(); $('conn
 catch(e) { error(`Unable to connect: ${e.message}. Reload to try again.`); }
 setInterval(refresh, 5000);
 window.addEventListener('online', refresh); document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
-if ('serviceWorker' in navigator) navigator.serviceWorker.register('./service-worker.js');

@@ -14,11 +14,15 @@ Old Trumps invitations using `/?room=CODE` still redirect to Trumps. New invites
 
 ## Local preview
 
+The hub, Trumps, and Dominoes share one installable **Joel’s Game Room** app. Every page links the same manifest and includes an Install Game Room button. Supported browsers offer their native prompt; other browsers show installation instructions. The button is hidden when running as an installed app. Installation opens the hub so both games are available from one icon. The shared installation handler lives in `js/install.js`; the cache version includes its assets.
+
 Run `node dev-server.cjs` from this directory and open http://127.0.0.1:8080/ . Gameplay requires an internet connection to Supabase. Cached pages do not enable offline turns.
 
 ## Supabase installation
 
 The additive migration `dominoes_cut_throat` was applied to the existing project during implementation. **Do not rerun `supabase/dominoes.sql` on that project.** That file is the exact standalone installation SQL for a fresh environment; it creates only Dominoes objects and registers the realtime table. Existing Trumps SQL migrations remain unchanged.
+
+The follow-up `dominoes_winner_starts` migration is also applied. Its standalone upgrade SQL is `supabase/dominoes-winner-starts.sql`. It changes only the Dominoes action function: double-six opens hand one, then the previous winner starts with any tile. A tied block retains the hand's starter. The fresh-install SQL includes this rule too. Deploy the updated frontend and refresh open game tabs so their tile highlighting uses the corrected rule.
 
 Objects added:
 
@@ -32,7 +36,7 @@ Anonymous Sign-Ins must remain enabled in Authentication → Sign In / Providers
 
 ## Dominoes rules and behavior
 
-Four players, double-six, all 28 tiles dealt (seven each), clockwise seats. The holder of double-six opens each hand. Play on either matching end; no drawing, and passing is rejected when a legal tile exists. First out wins. Four consecutive passes block the hand; the lowest pip total wins, with no point awarded for a tied minimum. One point per hand win; first to six wins the match. The host starts the match and deals the next hand. These house rules are displayed in the lobby.
+Four players, double-six, all 28 tiles dealt (seven each), clockwise seats. The holder of double-six opens only the first hand. The previous winner opens each later hand with any tile; after a tied block, the same starter opens the redeal. Play on either matching end; no drawing, and passing is rejected when a legal tile exists. First out wins. Four consecutive passes block the hand; the lowest pip total wins, with no point awarded for a tied minimum. One point per hand win; first to six wins the match. The host starts the match and deals the next hand. These house rules are displayed in the lobby.
 
 All actions lock the room's private state in a transaction and validate turn, tile ownership, chosen end, phase, and expected revision. Opponents' hands are withheld while live and revealed in completed-hand results. The UI includes score totals, hand history, and a play/pass review.
 

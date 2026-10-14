@@ -4,7 +4,7 @@ do $$
 declare
  users uuid[]:=array[gen_random_uuid(),gen_random_uuid(),gen_random_uuid(),gen_random_uuid()];
  snap jsonb; other jsonb; rid uuid; code text; tile jsonb; chosen jsonb; side text;
- i int; k int; steps int:=0; turn int; rejected boolean; seen jsonb;
+ i int; k int; steps int:=0; turn int; expected_starter int; rejected boolean; seen jsonb;
 begin
  perform set_config('request.jwt.claim.sub',users[1]::text,true);
  snap:=public.dominoes_action('create',null,'{"name":"Test host"}');
@@ -42,21 +42,28 @@ begin
  rejected:=false;
  begin perform public.dominoes_action('play',rid,jsonb_build_object('revision',-1,'tile','[6,6]'::jsonb,'end','right')); exception when others then rejected:=true; end;
  assert rejected,'Stale action allowed';
+ snap:=public.dominoes_action('get',rid);
+ select value into chosen from jsonb_array_elements(snap->'hand') where value<>'[6,6]'::jsonb limit 1;
+ rejected:=false;
+ begin perform public.dominoes_action('play',rid,jsonb_build_object('revision',snap->'revision','tile',chosen,'end','right')); exception when others then rejected:=true; end;
+ assert rejected,'First hand allowed a non-double-six opening';
  -- Exercise complete matches with server-validated plays and forced passes.
  for k in 1..3 loop
   loop
    steps:=steps+1; assert steps<10000,'Match did not terminate';
    exit when snap->>'phase'='match_complete';
    if snap->>'phase'='hand_complete' then
+    expected_starter:=coalesce((snap->'result'->>'winner')::int,(snap->>'starter')::int);
     perform set_config('request.jwt.claim.sub',users[1]::text,true);
     snap:=public.dominoes_action('next',rid);
+    assert (snap->>'turn')::int=expected_starter,'Previous winner did not start';
    end if;
    turn:=(snap->>'turn')::int;
    perform set_config('request.jwt.claim.sub',users[turn+1]::text,true);
    snap:=public.dominoes_action('get',rid); chosen:=null; side:='right';
    for tile in select value from jsonb_array_elements(snap->'hand') loop
     if jsonb_array_length(snap->'board')=0 then
-     if tile='[6,6]'::jsonb then chosen:=tile; exit; end if;
+     if (snap->>'handNumber')::int>1 or tile='[6,6]'::jsonb then chosen:=tile; exit; end if;
     elsif tile @> jsonb_build_array(snap->'board'->0->0) then chosen:=tile; side:='left'; exit;
     elsif tile @> jsonb_build_array(snap->'board'->(jsonb_array_length(snap->'board')-1)->1) then chosen:=tile; exit;
     end if;
@@ -75,7 +82,7 @@ begin
  end loop;
  -- Deterministic blocked win and tied blocked hand.
  for k in 1..2 loop
-  update dominoes_private.games set state=state||jsonb_build_object('phase','playing','turn',0,'passes',0,'board','[[6,6]]'::jsonb,'scores','[0,0,0,0]'::jsonb,'hands',case when k=1 then '[[[0,0]],[[1,1]],[[2,2]],[[3,3]]]'::jsonb else '[[[0,3]],[[1,2]],[[4,4]],[[5,5]]]'::jsonb end) where room_id=rid;
+  update dominoes_private.games set state=state||jsonb_build_object('phase','playing','turn',0,'starter',2,'passes',0,'board','[[6,6]]'::jsonb,'scores','[0,0,0,0]'::jsonb,'hands',case when k=1 then '[[[0,0]],[[1,1]],[[2,2]],[[3,3]]]'::jsonb else '[[[0,3]],[[1,2]],[[4,4]],[[5,5]]]'::jsonb end) where room_id=rid;
   for i in 1..4 loop
    perform set_config('request.jwt.claim.sub',users[i]::text,true);
    snap:=public.dominoes_action('get',rid);
@@ -84,6 +91,15 @@ begin
   assert snap->>'phase'='hand_complete','Blocked hand did not finish';
   if k=1 then assert snap->'result'->>'winner'='0','Lowest pips did not win';
   else assert snap->'result'->>'winner' is null and snap->'scores'='[0,0,0,0]'::jsonb,'Tied block awarded a point'; end if;
+  perform set_config('request.jwt.claim.sub',users[1]::text,true);
+  snap:=public.dominoes_action('next',rid);
+  assert (snap->>'turn')::int=case when k=1 then 0 else 2 end,'Blocked win/tie chose wrong starter';
+  turn:=(snap->>'turn')::int;
+  perform set_config('request.jwt.claim.sub',users[turn+1]::text,true);
+  snap:=public.dominoes_action('get',rid);
+  select value into chosen from jsonb_array_elements(snap->'hand') where value<>'[6,6]'::jsonb limit 1;
+  snap:=public.dominoes_action('play',rid,jsonb_build_object('revision',snap->'revision','tile',chosen,'end','right'));
+  assert snap->'board'->0=chosen,'Later hand rejected chosen opening tile';
  end loop;
  raise notice 'PASS: access, deal, rejoin, turn/pass/revision enforcement and 3 full matches (% actions)',steps;
 end $$;

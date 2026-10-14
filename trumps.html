@@ -8,13 +8,13 @@
     <link rel="manifest" href="./manifest.webmanifest" />
     <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/icon-192.png" />
-    <link rel="stylesheet" href="./css/app.css" />
+    <link rel="stylesheet" href="./css/app.css" /><link rel="stylesheet" href="./css/install.css" /><script src="./js/install.js" defer></script>
     <link rel="stylesheet" href="./css/lobby.css" />
     <link rel="stylesheet" href="./css/game.css" />
   </head>
   <body>
     <main class="app-shell">
-      <a href="./" style="color:inherit">← Game room</a>
+      <nav class="page-nav"><a href="./">← Game room</a><button type="button" data-install>Install Game Room</button></nav>
       <header class="brand">
         <span class="brand__suit" aria-hidden="true">♠</span>
         <div>
@@ -61,7 +61,6 @@
           <input id="join-name" name="displayName" maxlength="24" autocomplete="nickname" placeholder="Joel" required />
           <button class="button button--secondary" type="submit">Join game</button>
         </form>
-        <button id="install-app" class="button button--install" type="button" hidden>Install Trumps app</button>
         <button id="open-history" class="owner-history-link" type="button">Owner game history</button>
       </section>
 

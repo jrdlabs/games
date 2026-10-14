@@ -4,9 +4,14 @@ const source = readFileSync(new URL('../js/dominoes-rules.js',import.meta.url),'
 const { fits, canPlay } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 assert.equal(canPlay([6,6],[]),true);
 assert.equal(canPlay([5,5],[]),false);
+assert.equal(canPlay([0,0],[],2),true);
+assert.equal(fits([2,5],[],'left',3),true);
+assert.equal(fits([2,5],[],'right',3),true);
+assert.equal(canPlay([6,6],[],2),true);
 const chain=[[3,6],[6,2]];
 assert.equal(fits([0,3],chain,'left'),true);
 assert.equal(fits([2,4],chain,'right'),true);
 assert.equal(fits([0,3],chain,'right'),false);
 assert.equal(canPlay([1,5],chain),false);
+assert.equal(canPlay([1,5],chain,2),false);
 console.log('PASS: opening and both end choices.');

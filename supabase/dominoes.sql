@@ -79,11 +79,16 @@ begin
    h:='[]';
    for j in 0..6 loop
     tile:=deck->(i*7+j); h:=h||jsonb_build_array(tile);
-    if tile='[6,6]'::jsonb then turn:=i; end if;
+    if p_action='start' and tile='[6,6]'::jsonb then turn:=i; end if;
    end loop;
    hands:=hands||jsonb_build_array(h);
   end loop;
-  s:=s||jsonb_build_object('hands',hands,'board','[]'::jsonb,'turn',turn,'passes',0,'phase','playing','handNumber',(s->>'handNumber')::int+1,'events','[]'::jsonb,'result',null);
+  if p_action='next' then
+   -- A tied block has no winner: retain that hand's starter for the redeal.
+   -- Event fallback supports rooms created before starter was recorded explicitly.
+   turn:=coalesce((s->'result'->>'winner')::int,(s->>'starter')::int,(s->'events'->0->>'seat')::int,(s->>'turn')::int,0);
+  end if;
+  s:=s||jsonb_build_object('hands',hands,'board','[]'::jsonb,'turn',turn,'starter',turn,'passes',0,'phase','playing','handNumber',(s->>'handNumber')::int+1,'events','[]'::jsonb,'result',null);
   changed:=true;
  elsif p_action in ('play','pass') then
   if s->>'phase'<>'playing' or (s->>'turn')::int<>me then raise exception 'It is not your turn'; end if;
@@ -100,7 +105,7 @@ begin
    if not exists(select 1 from jsonb_array_elements(h) t where t=tile) then raise exception 'Tile is not in your hand'; end if;
    a:=(tile->>0)::int; b:=(tile->>1)::int;
    if n=0 then
-    if tile<>'[6,6]'::jsonb then raise exception 'Open with double-six'; end if;
+    if (s->>'handNumber')::int=1 and tile<>'[6,6]'::jsonb then raise exception 'Open the first hand with double-six'; end if;
     board:=jsonb_build_array(tile);
    elsif p_args->>'end'='left' then
     if b=l then null; elsif a=l then tile:=jsonb_build_array(b,a); else raise exception 'Tile does not fit the left end'; end if;
