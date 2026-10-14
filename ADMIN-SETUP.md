@@ -1,41 +1,41 @@
 # Admin test area
 
-After merging this change, open https://jrdlabs.github.io/games/admin.html . The hub also links to it. The approved Google email is configured privately in the existing Supabase project's allowlist. No password is needed, and no approved email or OAuth secret is shipped in the public frontend.
+The admin page is https://jrdlabs.github.io/games/admin.html after merging/publishing the pull request. It uses ordinary Supabase email/password authentication. Google Cloud, Google OAuth credentials, and Google sign-in are not required.
 
-## One-time Google setup
+## One-time account setup
 
-Google sign-in is currently disabled in this Supabase project. Signing into the Supabase dashboard with Google does not configure Google login for your own application.
+The database is already configured for the owner's approved email. The website has no public sign-up form, and admin access is bound to the account ID created for that approved email.
 
-1. Open [Google Auth Platform](https://console.cloud.google.com/auth/overview) in your Google Cloud project (create a project if needed). Configure Branding and Audience. While the app is in testing, add your own Google account as a test user. Only basic `openid`, email, and profile scopes are needed.
-2. Create a **Web application** OAuth client. Authorized JavaScript origin: `https://jrdlabs.github.io`. Authorized redirect URI: `https://yxaxfnoveylmtjzbbbee.supabase.co/auth/v1/callback`.
-3. In [Supabase → Authentication → Providers](https://supabase.com/dashboard/project/yxaxfnoveylmtjzbbbee/auth/providers), enable **Google** and paste the Google client ID and secret there. Save. Keep these credentials out of source files and chat.
-4. In [Supabase → Authentication → URL Configuration](https://supabase.com/dashboard/project/yxaxfnoveylmtjzbbbee/auth/url-configuration), add the exact redirect URL `https://jrdlabs.github.io/games/admin.html`. Preserve existing URLs/settings used by other apps in this shared project; do not replace the Site URL just for this feature.
-5. Once the pull request is merged and Pages publishes, open the admin page and choose **Continue with Google**, selecting your approved account.
+After merging the pull request:
 
-Optional local testing: add `http://127.0.0.1:8080/admin.html` to Supabase's redirect list and use the local preview server. Remove local-only URLs when no longer needed.
+1. Open [Supabase Authentication → Users](https://supabase.com/dashboard/project/yxaxfnoveylmtjzbbbee/auth/users).
+2. Choose **Add user → Create new user**. Enter your approved email and choose your own strong password privately. Confirm/auto-confirm this account if the dashboard offers that option; you are provisioning your own account as the project owner. Do not put the password in chat or source files.
+3. Open the admin page and sign in with that email and password. Email/password is already enabled in the project.
 
-See [Supabase's Google sign-in documentation](https://supabase.com/docs/guides/auth/social-login/auth-google).
+Alternatively, provision through **Invite user** and let the owner choose a password using the invitation. This requires the invitation redirect to reach the admin page; the direct-create flow above avoids any email/redirect setup for first login.
+
+For the page's **Forgot password?** flow (and invitations), add `https://jrdlabs.github.io/games/admin.html` under [Supabase Authentication → URL Configuration → Redirect URLs](https://supabase.com/dashboard/project/yxaxfnoveylmtjzbbbee/auth/url-configuration). Preserve this shared project's existing URLs and Site URL. The recovery page lets you set and confirm a new password; request the reset from the admin login page. Supabase must have working email delivery to send reset/invite emails. See [Supabase password authentication](https://supabase.com/docs/guides/auth/passwords).
+
+No shared authentication settings were disabled: anonymous player access and other applications in this shared project remain available. Signing in or out of admin uses separate browser storage, preserving normal player identities and seats.
 
 ## Test controls
 
-- **New test table:** seats you and three bots immediately.
-- **Control seat:** switch to any seat and play its legal tiles. Automatic bots play all seats other than the selected seat.
-- **Run bots automatically:** bots take one turn about every second; uncheck to pause. Changing seats, loading a situation, restarting, hiding the page, or signing out pauses them.
-- **Play one turn automatically:** advances the current turn, including your selected seat. Useful for quickly exercising a complete match.
-- **Reveal all hands:** private admin-only live-hand visibility.
-- **Restart match / Deal next hand:** reset scores/deal, or advance a completed hand.
-- **Situations:** blocked hand, tied block, last-tile win, and previous-winner opening. These use synthetic short hands, intentionally not a full 28-tile deal.
+- **New test table:** you and three bots, immediately seated.
+- **Control seat:** play any seat; automatic bots play all other seats.
+- **Run bots automatically:** one turn roughly every second; uncheck to pause. Seat changes, scenarios, restart, hiding the page, and sign-out pause bots.
+- **Play one turn automatically:** advances the current seat, including the controlled seat.
+- **Reveal all hands:** admin-only live hand visibility.
+- **Restart match / Deal next hand:** reset scores/deal or advance a completed hand.
+- **Situations:** blocked hand, tied block, last-tile win, and previous-winner opening. Synthetic short hands reach edge cases quickly; all moves use real game validation.
 
-Closing/reopening the admin page restores the last test room when available. The newest ten rooms per admin are retained; creating more discards older test fixtures. Normal tables cannot join or open these rooms. Test history stays within its marked test room; no Trumps history/statistics are written. There are currently no global Dominoes stats, so any future aggregator must exclude `dominoes_private.test_sessions`.
+The newest ten test rooms per admin are retained. Normal game APIs reject these rooms. Test history stays within marked test rooms; no Trumps statistics/history are written. Future global Dominoes statistics must exclude `dominoes_private.test_sessions`.
 
-## Implementation and database status
+## Database and verification
 
-The `dominoes_admin_test_mode` migration has already been applied to the existing Supabase project, and the approved email allowlist is configured. **Do not rerun the migration on the existing project.** `supabase/dominoes-admin.sql` is the one-time upgrade for another environment, after the base Dominoes and winner-starts SQL. Configure that environment's private allowlist separately through its SQL editor.
+The `dominoes_admin_test_mode` and `dominoes_admin_email_password` migrations are already applied to the existing project. **Do not rerun them.** For another environment, run base Dominoes SQL, the winner-starts update, `supabase/dominoes-admin.sql`, then `supabase/dominoes-admin-email.sql`, in that order; privately configure its approved-email allowlist before provisioning the owner account.
 
-The shared authoritative rules now live in `dominoes_private.engine`. Clients cannot execute it or supply another player's identity. Normal `dominoes_action` calls use the caller's own identity and reject test rooms. Admin calls first check an approved email against a server-maintained, verified Google identity in `auth.identities`, then confirm test-room ownership. Editable user metadata is never used to grant admin access.
+The current allowlist is `dominoes_private.admin_email_allowlist`. A database trigger binds a newly created approved-email account to its user ID in `dominoes_private.admin_accounts`. Admin RPCs require that bound ID, the matching server-side email, confirmed email ownership, a configured password, and a non-anonymous account. Later email/profile changes never enroll a different account; editable metadata is not used for authorization. An invitation session can access the password-setup form but cannot run test tables until a password is configured.
 
-Admin login uses a separate browser storage key and PKCE OAuth flow. It does not replace the anonymous Supabase session used by Trumps and Dominoes. Local admin sign-out does not sign the player session out.
+The private shared engine is callable only from the normal/admin dispatchers. Regular calls cannot impersonate seats or access test rooms. The Google-based guard in the historical installation SQL is superseded by the email/password upgrade; no Google configuration is needed.
 
-`supabase/dominoes-admin-test.sql` rolls back all fixtures and tests authorization, spoofed metadata rejection, engine execution denial, regular/test isolation, hand reveal and seat views, a full bot match, restart, and every scenario. Existing regular Dominoes regression tests remain applicable. Database tests use synthetic Google identity fixtures; the actual Google redirect/login must be verified after provider setup. Visual browser testing also remains outstanding because the in-app browser cannot reach the local preview.
-
-Advisor informational notices for private RLS tables without policies are intentional deny-all access, with all direct client privileges revoked. The existing project's unrelated account/Trumps advisories are unchanged; [RLS advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
+`supabase/dominoes-admin-test.sql` rolls back all fixtures and tests bound-account authorization, unconfirmed/missing-password rejection, spoofed metadata rejection, private engine denial, test isolation, hand reveal/seat controls, full bot play, reset, and scenarios. Regular gameplay regression tests also pass. The owner's real password sign-in must be verified after account provisioning; no password was created, read or logged by the assistant. Visual/device verification remains pending.

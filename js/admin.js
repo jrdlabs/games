@@ -2,7 +2,9 @@ import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { fits, canPlay } from './dominoes-rules.js';
 // Separate storage preserves the anonymous identity and seats used in normal games.
-const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { storageKey:'game-room-admin-auth', persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'pkce' } });
+const incomingType=new URLSearchParams(location.hash.slice(1)).get('type');
+let passwordFlow=['invite','recovery'].includes(incomingType);
+const client = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, { auth: { storageKey:'game-room-admin-auth', persistSession:true, autoRefreshToken:true, detectSessionInUrl:true, flowType:'implicit' } });
 const $ = id => document.getElementById(id);
 let state, selected, busy=false, allowed=false, botTimer, saved=localStorage.getItem('dominoes.admin.room');
 const message = text => { $('message').textContent=text; };
@@ -53,8 +55,40 @@ function render() {
   $('events').replaceChildren(...(state.events||[]).map(e=>{const li=document.createElement('li');li.textContent=`${state.players[e.seat].name} ${e.action==='pass'?'passed on '+e.ends.join(' / '):'played '+e.tile.join('–')}`;return li;}));
 }
 function scheduleBot(){clearTimeout(botTimer);if(allowed&&$('bots').checked&&state?.phase==='playing'&&state.turn!==Number($('seat').value))botTimer=setTimeout(()=>run('step'),900);}
-$('google').onclick=async()=>{message('Opening Google sign-in…');const {error}=await client.auth.signInWithOAuth({provider:'google',options:{redirectTo:new URL('./admin.html',location.href).href,queryParams:{prompt:'select_account'}}});if(error)message(error.message);};
-$('signout').onclick=async()=>{pause();const {error}=await client.auth.signOut({scope:'local'});if(error){message(error.message);return;}allowed=false;state=null;$('admin').hidden=true;$('login').hidden=false;message('Signed out of the admin area.');};
+async function checkAccount() {
+  const {data,error}=await client.auth.getSession();if(error)throw error;
+  $('admin').hidden=true;$('password-setup').hidden=true;$('signout').hidden=!data.session;
+  if(!data.session){allowed=false;$('login').hidden=false;message('Sign in to use the private test area.');return;}
+  const {data:account,error:problem}=await client.rpc('dominoes_admin_account');if(problem)throw problem;
+  if(!account.approved){allowed=false;$('login').hidden=false;message('This account does not have admin access. Sign out and use your provisioned admin account.');return;}
+  $('login').hidden=true;
+  if(account.needsPassword||passwordFlow){allowed=false;$('password-setup').hidden=false;message('Choose your admin password to continue.');return;}
+  const {error:denied}=await client.rpc('dominoes_admin_action',{p_action:'status'});if(denied)throw denied;
+  allowed=true;$('admin').hidden=false;message('Signed in. Start a test table whenever you’re ready.');updateButtons();
+  if(saved&&!state?.players){state={room:saved};await run('get');if(!state?.players)state=null;}
+}
+$('login-form').onsubmit=async event=>{
+  event.preventDefault();$('signin').disabled=true;message('Signing in…');
+  try{const {error}=await client.auth.signInWithPassword({email:$('admin-email').value.trim(),password:$('admin-password').value});if(error)throw error;passwordFlow=false;await checkAccount();}
+  catch(e){message(e.message||'Sign-in failed.');}
+  finally{$('admin-password').value='';$('signin').disabled=false;}
+};
+$('forgot').onclick=async()=>{
+  const email=$('admin-email').value.trim();if(!$('admin-email').reportValidity())return;
+  $('forgot').disabled=true;
+  try{const {error}=await client.auth.resetPasswordForEmail(email,{redirectTo:new URL('./admin.html',location.href).href});if(error)throw error;message('If this email has an account, a password-reset link has been sent. Check your inbox.');}
+  catch(e){message(e.message||'Could not send password-reset email.');}
+  finally{$('forgot').disabled=false;}
+};
+$('password-form').onsubmit=async event=>{
+  event.preventDefault();const password=$('new-password').value;
+  if(password!==$('confirm-password').value){message('The passwords do not match.');return;}
+  $('save-password').disabled=true;
+  try{const {error}=await client.auth.updateUser({password});if(error)throw error;passwordFlow=false;$('password-form').reset();await checkAccount();message('Password saved. Your admin test area is ready.');}
+  catch(e){message(e.message||'Could not save password. Request a fresh reset link if this one expired.');}
+  finally{$('save-password').disabled=false;}
+};
+$('signout').onclick=async()=>{pause();const {error}=await client.auth.signOut({scope:'local'});if(error){message(error.message);return;}allowed=false;state=null;passwordFlow=false;$('admin').hidden=true;$('password-setup').hidden=true;$('login').hidden=false;$('signout').hidden=true;message('Signed out of the admin area.');};
 $('create').onclick=()=>{pause();run('create');};$('restart').onclick=()=>{pause();run('reset');};$('next-hand').onclick=()=>run('next');$('step').onclick=()=>run('step');
 $('load').onclick=()=>{pause();run('scenario',{scenario:$('scenario').value});};
 $('seat').onchange=()=>{pause();run('get');};$('reveal').onchange=()=>run('get');$('bots').onchange=scheduleBot;
@@ -62,14 +96,12 @@ $('pass').onclick=()=>run('pass');for(const end of ['left','right'])$(end).oncli
 $('cancel').onclick=()=>{selected=null;$('choice').hidden=true;updateButtons();};
 document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});window.addEventListener('pagehide',pause);
 try {
-  const {data,error}=await client.auth.getSession();if(error)throw error;
-  if(new URLSearchParams(location.search).has('code'))history.replaceState(null,'',location.pathname);
-  if(!data.session){$('login').hidden=false;message('Sign in to use the private test area.');}
-  else{
-    const {error:denied}=await client.rpc('dominoes_admin_action',{p_action:'status'});if(denied)throw denied;
-    allowed=true;$('admin').hidden=false;message('Signed in. Start a test table whenever you’re ready.');updateButtons();
-    if(saved){state={room:saved};await run('get');if(!state?.players)state=null;}
-  }
-}catch(e){allowed=false;$('login').hidden=false;$('signout').hidden=false;$('login').append($('signout'));message(e.message||'Admin sign-in failed.');}
-try{const response=await fetch(SUPABASE_URL+'/auth/v1/settings',{headers:{apikey:SUPABASE_PUBLISHABLE_KEY}});if(response.ok){const settings=await response.json();$('setup').hidden=!!settings.external?.google;$('google').disabled=!settings.external?.google;}}catch{}
-client.auth.onAuthStateChange((event,session)=>{if(event==='SIGNED_OUT'||!session){pause();allowed=false;$('admin').hidden=true;$('login').hidden=false;}});
+  const callbackError=new URLSearchParams(location.hash.slice(1)).get('error_description');
+  if(callbackError)throw new Error(callbackError);
+  await checkAccount();
+  if(location.hash||new URLSearchParams(location.search).has('code'))history.replaceState(null,'',location.pathname);
+}catch(e){allowed=false;$('login').hidden=false;message(e.message||'Admin sign-in failed. Request a new reset link if needed.');}
+client.auth.onAuthStateChange((event,session)=>{
+  if(event==='PASSWORD_RECOVERY'){passwordFlow=true;pause();queueMicrotask(()=>checkAccount().catch(e=>message(e.message)));}
+  if(event==='SIGNED_OUT'||!session){pause();allowed=false;$('admin').hidden=true;$('password-setup').hidden=true;$('login').hidden=false;$('signout').hidden=true;}
+});

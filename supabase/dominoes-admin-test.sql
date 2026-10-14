@@ -5,8 +5,8 @@ declare
  admin_id uuid:=gen_random_uuid(); outsider uuid:=gen_random_uuid();
  snap jsonb; normal jsonb; rid uuid; code text; denied boolean; turns int:=0;
 begin
- insert into auth.users(id,email,raw_user_meta_data) values(admin_id,'admin-test@example.invalid','{}'),(outsider,'outsider-test@example.invalid','{"email":"admin-test@example.invalid","email_verified":true}');
- insert into dominoes_private.admin_google_allowlist values('admin-test@example.invalid');
+ insert into dominoes_private.admin_email_allowlist values('admin-test@example.invalid');
+ insert into auth.users(id,email,raw_user_meta_data,is_anonymous) values(admin_id,'admin-test@example.invalid','{}',false),(outsider,'outsider-test@example.invalid','{"email":"admin-test@example.invalid","email_verified":true}',false);
  perform set_config('request.jwt.claim.sub',outsider::text,true);
  denied:=false;
  begin perform public.dominoes_admin_action('status'); exception when others then denied:=true; end;
@@ -14,11 +14,16 @@ begin
  perform set_config('request.jwt.claim.sub',admin_id::text,true);
  denied:=false;
  begin perform public.dominoes_admin_action('status'); exception when others then denied:=true; end;
- assert denied,'Email alone granted admin without verified Google identity';
- insert into auth.identities(provider_id,user_id,identity_data,provider) values(admin_id::text,admin_id,jsonb_build_object('sub',admin_id,'email','admin-test@example.invalid','email_verified',true),'google');
+ assert denied,'Unconfirmed email granted admin';
+ update auth.users set email_confirmed_at=now() where id=admin_id;
+ assert public.dominoes_admin_account()->>'needsPassword'='true','Invited user did not get password setup';
+ denied:=false;
+ begin perform public.dominoes_admin_action('status'); exception when others then denied:=true; end;
+ assert denied,'Account without password received admin access';
+ update auth.users set encrypted_password='fixture-hash-not-a-real-password' where id=admin_id;
  -- Run RPCs with the actual authenticated role, not database-owner privileges.
  execute 'set local role authenticated';
- assert public.dominoes_admin_action('status')->>'admin'='true','Approved Google identity rejected';
+ assert public.dominoes_admin_action('status')->>'admin'='true','Approved confirmed password account rejected';
  denied:=false;
  begin perform dominoes_private.engine(admin_id,'create',null,'{"name":"Bypass"}'); exception when insufficient_privilege then denied:=true; end;
  assert denied,'Authenticated caller can impersonate an engine actor';
@@ -59,5 +64,5 @@ begin
  normal:=public.dominoes_action('create',null,'{"name":"Normal regression"}');
  assert normal->>'phase'='lobby','Regular game creation regressed';
 end $$;
-select 'PASS: Google-only admin guard, metadata spoof rejection, engine permissions, test isolation, all-seat/reveal controls, full bot match, resets and four scenarios' as test_result;
+select 'PASS: bound email/password admin guard, unconfirmed and missing-password rejection, metadata spoof rejection, engine permissions, test isolation, full bot match and scenarios' as test_result;
 rollback;
