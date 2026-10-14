@@ -1,7 +1,12 @@
-const CACHE_NAME = "trumps-shell-v20";
+const CACHE_NAME = "game-room-shell-v21";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./trumps.html",
+  "./dominoes.html",
+  "./css/dominoes.css",
+  "./js/dominoes.js",
+  "./js/dominoes-rules.js",
   "./css/app.css",
   "./css/lobby.css",
   "./css/game.css",
@@ -40,6 +45,6 @@ self.addEventListener("fetch", (event) => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+      .catch(() => caches.match(event.request).then((cached) => cached || (event.request.mode === 'navigate' ? caches.match(new URL(event.request.url).pathname) : Response.error())))
   );
 });

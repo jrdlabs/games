@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const source = readFileSync(new URL('../js/dominoes-rules.js',import.meta.url),'utf8');
+const { fits, canPlay } = await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+assert.equal(canPlay([6,6],[]),true);
+assert.equal(canPlay([5,5],[]),false);
+const chain=[[3,6],[6,2]];
+assert.equal(fits([0,3],chain,'left'),true);
+assert.equal(fits([2,4],chain,'right'),true);
+assert.equal(fits([0,3],chain,'right'),false);
+assert.equal(canPlay([1,5],chain),false);
+console.log('PASS: opening and both end choices.');
