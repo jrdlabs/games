@@ -1,7 +1,9 @@
-const CACHE_NAME = "game-room-shell-v25";
+const CACHE_NAME = "game-room-shell-v26";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./js/dominoes-table.js",
+  "./css/dominoes-table.css",
   "./admin.html",
   "./css/admin.css",
   "./js/admin.js",

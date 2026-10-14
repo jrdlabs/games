@@ -1,15 +1,10 @@
 import { supabase, ensureAnonymousSession } from './supabase.js';
 import { fits, canPlay } from './dominoes-rules.js';
+import { tileNode, createTable } from './dominoes-table.js';
 const $ = id => document.getElementById(id);
 let state, selected, busy = false, channel, refreshing = false, sessionReady = false;
 let saved = localStorage.getItem('dominoes.room');
 const error = message => { $('error').textContent = message; $('error').hidden = !message; };
-function tileNode(tile, button = false) {
-  const el = document.createElement(button ? 'button' : 'div');
-  el.className = 'tile'; el.setAttribute('aria-label', `${tile[0]}–${tile[1]}`);
-  for (const pip of tile) { const half = document.createElement('span'); half.textContent = pip || '○'; el.append(half); }
-  return el;
-}
 async function rpc(action, args = {}) {
   const { data, error: problem } = await supabase.rpc('dominoes_action', { p_action: action, p_room: state?.room || null, p_args: args });
   if (problem) throw problem;
@@ -43,6 +38,7 @@ async function refresh() {
   finally { refreshing = false; }
 }
 function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
+const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status')});
 function render() {
   if (!state) return;
   $('home').hidden = true; $('room').hidden = false;
@@ -53,6 +49,7 @@ function render() {
     const info = document.createElement('small'); info.textContent = state.players[i] ? `${i === state.me ? 'You · ' : ''}${state.scores[i]} points · ${state.counts[i]} tiles${i === 0 ? ' · Host' : ''}` : 'Waiting for a friend'; el.append(name, info); return el;
   }));
   const lobby = state.phase === 'lobby', playing = state.phase === 'playing', myTurn = playing && state.turn === state.me;
+  document.body.classList.toggle('dominoes-playing',!lobby);
   $('lobby').hidden = !lobby; $('table').hidden = lobby;
   $('waiting').textContent = `${state.players.length}/4 seated. ${state.me === 0 ? 'Deal when everyone is here.' : 'The host will deal.'}`;
   renderBusy();
@@ -60,7 +57,7 @@ function render() {
   if (lobby) return;
   $('status').textContent = `Hand ${state.handNumber} · ${playing ? (myTurn ? 'Your turn — choose a highlighted tile' : `${state.players[state.turn].name} to play`) : state.phase === 'match_complete' ? 'Match complete' : 'Hand complete'}`;
   const board = state.board || [];
-  $('board').replaceChildren(...board.map(t => tileNode(t)));
+
   $('ends').textContent = board.length ? `Open ends: ${board[0][0]} and ${board.at(-1)[1]}` : '';
   $('empty').hidden = board.length > 0;
   $('empty').textContent = state.handNumber === 1 ? 'Double-six opens the first hand' : `${state.players[state.turn].name} opens with any tile`;
@@ -69,6 +66,7 @@ function render() {
     el.disabled = busy || !myTurn || !valid; if (myTurn && valid) el.classList.add('playable');
     el.onclick = () => { selected = tile; showChoice(); }; return el;
   }));
+  renderTable(state);
   $('pass').disabled = busy || !myTurn || state.hand.some(t => canPlay(t, board, state.handNumber));
   if (!myTurn) selected = null;
   showChoice();
@@ -99,7 +97,7 @@ $('start').onclick = () => act('start'); $('next').onclick = () => act('next'); 
 for (const end of ['left','right']) $(end).onclick = () => act('play', { tile: selected, end });
 $('cancel').onclick = () => { selected = null; showChoice(); };
 $('invite').onclick = async () => { try { await navigator.clipboard.writeText(`${location.origin}${location.pathname}?room=${state.code}`); $('invite').textContent = 'Copied!'; } catch { error(`Share room code: ${state.code}`); } };
-$('tables').onclick = async () => { if (channel) await supabase.removeChannel(channel); channel = null; state = null; selected = null; $('room').hidden = true; $('home').hidden = false; $('resume').hidden = !saved; history.replaceState(null, '', location.pathname); };
+$('tables').onclick = async () => { if (channel) await supabase.removeChannel(channel); channel = null; state = null; selected = null; document.body.classList.remove('dominoes-playing'); $('room').hidden = true; $('home').hidden = false; $('resume').hidden = !saved; history.replaceState(null, '', location.pathname); };
 async function resume(expectedCode) {
   if (!saved || busy || !sessionReady) return;
   busy = true;

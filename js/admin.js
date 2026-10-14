@@ -1,6 +1,7 @@
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.57.4/+esm';
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
 import { fits, canPlay } from './dominoes-rules.js';
+import { tileNode, createTable } from './dominoes-table.js';
 // Separate storage preserves the anonymous identity and seats used in normal games.
 const incomingType=new URLSearchParams(location.hash.slice(1)).get('type');
 let passwordFlow=['invite','recovery'].includes(incomingType);
@@ -9,10 +10,6 @@ const $ = id => document.getElementById(id);
 let state, selected, busy=false, allowed=false, botTimer, saved=localStorage.getItem('dominoes.admin.room');
 const message = text => { $('message').textContent=text; };
 function pause() { $('bots').checked=false; clearTimeout(botTimer); }
-function tileNode(tile, button=false) {
-  const el=document.createElement(button?'button':'div'); el.className='tile'; el.setAttribute('aria-label',tile.join('–'));
-  tile.forEach(pip=>{const half=document.createElement('span');half.textContent=pip||'○';el.append(half);}); return el;
-}
 async function rpc(action,args={}) {
   const {data,error}=await client.rpc('dominoes_admin_action',{p_action:action,p_room:state?.room||null,p_args:{seat:Number($('seat').value),viewSeat:Number($('seat').value),reveal:$('reveal').checked,revision:state?.revision,...args}});
   if(error)throw error; return data;
@@ -39,15 +36,18 @@ function updateButtons() {
   $('pass').disabled=busy||state?.phase!=='playing'||state.turn!==Number($('seat').value)||state.hand.some(t=>canPlay(t,state.board,state.handNumber));
   for(const end of ['left','right'])$(end).disabled=busy||!selected||!fits(selected,state.board,end,state.handNumber);
 }
+const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status'),seats:$('seats')});
 function render() {
   if(!state)return;
+  document.body.classList.add('admin-table-playing');
   $('test-table').hidden=false;
   $('status').textContent=`Hand ${state.handNumber} · ${state.phase==='playing'?state.players[state.turn].name+' to play':state.phase==='match_complete'?'Match complete':state.result?.winner==null?'Hand tied':state.players[state.result.winner].name+' wins the hand'} · Scores: ${state.scores.join(' / ')}`;
   if(state.phase==='playing'&&!state.board.length)$('status').textContent+=state.handNumber===1?' · Open with 6–6':' · Open with any tile';
   $('seats').replaceChildren(...state.players.map((p,i)=>{const el=document.createElement('div');el.className='seat'+(state.turn===i&&state.phase==='playing'?' active':'');el.textContent=`${p.name} · ${state.counts[i]} tiles · ${state.scores[i]} points`;return el;}));
-  $('board').replaceChildren(...state.board.map(t=>tileNode(t)));
+
   $('hand-title').textContent=`${state.players[Number($('seat').value)].name}’s tiles`;
   $('hand').replaceChildren(...state.hand.map(tile=>{const el=tileNode(tile,true);const valid=state.phase==='playing'&&state.turn===Number($('seat').value)&&canPlay(tile,state.board,state.handNumber);el.disabled=!valid||busy;if(valid)el.classList.add('playable');el.onclick=()=>{selected=tile;$('choice').hidden=false;$('choice-title').textContent=`Play ${tile.join('–')} on which end?`;updateButtons();};return el;}));
+  renderTable(state);
   $('choice').hidden=!selected;
   $('all-hands').hidden=!state.fullHands;
   $('all-hands').replaceChildren();
