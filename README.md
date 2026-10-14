@@ -53,4 +53,3 @@ The shared anonymous Supabase session and Dominoes-specific room ID persist in b
 - Visual browser QA remains outstanding: the available in-app browser timed out reaching the local preview. Test mobile layout and a full four-phone match before treating the UI as release-verified.
 
 Security advisor notices for Dominoes reflect intentional anonymous member access and the private table's deny-all RLS setup. Existing Trumps/cron/account-level advisor findings were not changed by this work.
-

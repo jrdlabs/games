@@ -39,4 +39,3 @@ Admin login uses a separate browser storage key and PKCE OAuth flow. It does not
 `supabase/dominoes-admin-test.sql` rolls back all fixtures and tests authorization, spoofed metadata rejection, engine execution denial, regular/test isolation, hand reveal and seat views, a full bot match, restart, and every scenario. Existing regular Dominoes regression tests remain applicable. Database tests use synthetic Google identity fixtures; the actual Google redirect/login must be verified after provider setup. Visual browser testing also remains outstanding because the in-app browser cannot reach the local preview.
 
 Advisor informational notices for private RLS tables without policies are intentional deny-all access, with all direct client privileges revoked. The existing project's unrelated account/Trumps advisories are unchanged; [RLS advisor explanation](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy).
-
