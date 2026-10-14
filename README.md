@@ -4,15 +4,17 @@ Static, mobile-first Trumps and Dominoes games sharing the existing Supabase pro
 
 ## URLs
 
-The existing GitHub Pages root responds at https://jrdlabs.github.io/trumps/ . After this change is merged/published:
+The existing GitHub Pages root responds at https://jrdlabs.github.io/games/ . After this change is merged/published:
 
-- Game hub: https://jrdlabs.github.io/trumps/
-- Trumps: https://jrdlabs.github.io/trumps/trumps.html
-- Dominoes: https://jrdlabs.github.io/trumps/dominoes.html
+- Game hub: https://jrdlabs.github.io/games/
+- Trumps: https://jrdlabs.github.io/games/trumps.html
+- Dominoes: https://jrdlabs.github.io/games/dominoes.html
 
 Old Trumps invitations using `/?room=CODE` still redirect to Trumps. New invites use each game's own page. All assets are relative to the repository root; no SPA rewrite or build step is required. Keep Pages publishing from the repository root. The service-worker cache version has been bumped and includes both games.
 
 ## Local preview
+
+The private Dominoes admin test area is documented in [ADMIN-SETUP.md](./ADMIN-SETUP.md), including the required one-time Google provider setup and controls. It reuses the real gameplay engine with private bot-filled test rooms.
 
 The hub, Trumps, and Dominoes share one installable **Joel’s Game Room** app. Every page links the same manifest and includes an Install Game Room button. Supported browsers offer their native prompt; other browsers show installation instructions. The button is hidden when running as an installed app. Installation opens the hub so both games are available from one icon. The shared installation handler lives in `js/install.js`; the cache version includes its assets.
 

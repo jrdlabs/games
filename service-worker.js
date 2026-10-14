@@ -1,7 +1,10 @@
-const CACHE_NAME = "game-room-shell-v23";
+const CACHE_NAME = "game-room-shell-v25";
 const APP_SHELL = [
   "./",
   "./index.html",
+  "./admin.html",
+  "./css/admin.css",
+  "./js/admin.js",
   "./css/hub.css",
   "./css/install.css",
   "./js/install.js",
@@ -42,7 +45,7 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(event.request)
       .then((response) => {
-        if (response.ok && new URL(event.request.url).origin === self.location.origin) {
+        if (response.ok && new URL(event.request.url).origin === self.location.origin && !new URL(event.request.url).searchParams.has('code')) {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
         }
