@@ -33,12 +33,13 @@ async function act(action, args = {}) {
 async function refresh() {
   if (!state?.room || refreshing || busy) return;
   refreshing = true;
-  try { const data = await rpc('get'); if (data.revision >= state.revision) { state = data; render(); } $('connection').textContent = 'Connected'; }
+  try { const data = await rpc('get'); if (data.revision > state.revision) { state = data; render(); } $('connection').textContent = 'Connected'; }
   catch (e) { $('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
   finally { refreshing = false; }
 }
 function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
 const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status')});
+$('hand').addEventListener('hand-reordered',()=>{selected=null;showChoice();});
 function render() {
   if (!state) return;
   $('home').hidden = true; $('room').hidden = false;

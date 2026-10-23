@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../js/dominoes-table.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/m,'');
+const source=readFileSync(new URL('../js/dominoes-table.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/gm,'');
 const {chainLayout,tileOffset}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const deck=Array.from({length:7},(_,a)=>Array.from({length:7-a},(_,b)=>[a,a+b])).flat();
 for(const [width,height] of [[170,220],[170,330],[230,420],[480,600],[700,700]]){

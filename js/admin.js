@@ -37,6 +37,7 @@ function updateButtons() {
   for(const end of ['left','right'])$(end).disabled=busy||!selected||!fits(selected,state.board,end,state.handNumber);
 }
 const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status'),seats:$('seats')});
+$('hand').addEventListener('hand-reordered',()=>{selected=null;$('choice').hidden=true;});
 function render() {
   if(!state)return;
   document.body.classList.add('admin-table-playing');

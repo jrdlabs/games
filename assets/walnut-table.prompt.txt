@@ -1,0 +1,3 @@
+Asset: walnut-table.jpg
+Generated with the built-in image generation tool, then encoded as a 184 KB JPEG for the mobile table background.
+Prompt: Evenly lit close-up dark walnut tabletop, directly overhead, rich subdued espresso and warm chocolate brown, soft low-contrast horizontal natural grain, smooth matte satin polish. No bright streaks, heavy knots, diagonal pattern, planks, rim, perspective, vignette, shadows, objects, text, icons or UI. A background material only, not a flat game screenshot.
