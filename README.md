@@ -14,7 +14,7 @@ Old Trumps invitations using `/?room=CODE` still redirect to Trumps. New invites
 
 ## Local preview
 
-To reorder a Dominoes hand, choose **Arrange tiles** above the table. Drag with mouse/touch, or select a tile and use the arrow buttons (keyboard left/right also works). Choose **Done arranging** to play again. Your order is saved only in this browser per room, hand and seat; it survives updates/reconnects and is never sent to other players.
+Dominoes hands are always reorderable: drag with mouse/touch, or select a tile and use the arrow buttons (keyboard left/right also works). A tap selects a playable tile; choose an end separately to confirm the play. Dragging never plays a tile. Your private order survives updates/reconnects in this browser per room, hand and seat. All hand tiles remain vertical. The **Scores** button opens the running hand-by-hand scoresheet.
 
 The private Dominoes admin test area is documented in [ADMIN-SETUP.md](./ADMIN-SETUP.md), including the required one-time Google provider setup and controls. It reuses the real gameplay engine with private bot-filled test rooms.
 
@@ -47,6 +47,8 @@ All actions lock the room's private state in a transaction and validate turn, ti
 The shared anonymous Supabase session and Dominoes-specific room ID persist in browser storage. Reloading restores the same seat, including invited URLs. Realtime updates trigger sanitized refreshes; five-second polling and online/visibility refresh provide recovery. Closing a page reserves the seat. This first version has no bots, player replacement, turn timeout, lobby leave/kick controls, or automatic host transfer. An interrupted match waits for the same players to return; clearing browser storage loses that anonymous identity. A new match uses a new room.
 
 ## Validation
+
+- `node tests/browser-mobile.cjs`: isolated headless Chrome component checks at 320, 360, 390, 768 and 1280 pixels. Requires Playwright and Chrome (or set `PLAYWRIGHT_PATH` to an installed Playwright module). Tests seven vertical hand tiles, clipping, viewport height, mouse/touch/keyboard order, reconnect persistence, updates during dragging, tap-vs-drag safety, full 28-tile chains, and scoresheet totals/rows. Uses only fixtures, never live rooms/accounts.
 
 - `node tests/rules.test.mjs`: opening and left/right tile choice rules.
 - Run `supabase/dominoes-test.sql` as database administrator: transaction-isolated, rolled-back tests for three randomized complete matches, unique deal, rejoin, outsider rejection, host checks, turn/revision/pass enforcement, deterministic blocked win/tie, and actual authenticated-role RLS/hand isolation.
