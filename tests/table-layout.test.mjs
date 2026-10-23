@@ -7,6 +7,14 @@ for(const [width,height] of [[170,220],[170,330],[230,420],[480,600],[700,700]])
  for(let count=1;count<=28;count++)for(let anchor=0;anchor<count;anchor++){
   const poses=chainLayout(count,anchor,width,height,deck.slice(0,count));assert.equal(poses.length,count);
   for(const p of poses){assert(p.x-p.w/2>=2);assert(p.x+p.w/2<=width-2);assert(p.y-p.h/2>=2);assert(p.y+p.h/2<=height-2);}
+  for(const side of [-1,1]){
+   let previous=poses[anchor];
+   for(let i=anchor+side;i>=0&&i<count;i+=side){const current=poses[i];
+    if(current.leg===1&&previous.leg===0)assert(side*(current.y-previous.y)>=(current.h+previous.h)/2+1,'Bend starts beside tile instead of after its end');
+    if(current.leg===2&&previous.leg===1)assert(side*(current.x-previous.x)>=(current.w+previous.w)/2+1,'Outer bend starts beside tile');
+    previous=current;
+   }
+  }
   for(let a=0;a<count;a++)for(let b=a+1;b<count;b++){
    const p=poses[a],q=poses[b];assert(Math.abs(p.x-q.x)>=(p.w+q.w)/2+1||Math.abs(p.y-q.y)>=(p.h+q.h)/2+1,`Overlap: ${width} ${height} ${count} ${anchor} ${a} ${b}`);
   }

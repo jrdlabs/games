@@ -13,7 +13,7 @@ export function chainLayout(count,anchor,width,height,tiles=[]){
  for(let length=Math.min(54,width/5,height/7);length>=8;length-=.5){
   const short=length/2,gap=Math.max(2,length*.09),pad=3;
   const isDouble=index=>tiles[index]?.[0]===tiles[index]?.[1]&&!!tiles[index];
-  const start={x:width/2,y:height/2,angle:isDouble(anchor)?90:0,w:isDouble(anchor)?length:short,h:isDouble(anchor)?short:length};const poses=Array(count);poses[anchor]=start;
+  const start={x:width/2,y:height/2,angle:isDouble(anchor)?90:0,w:isDouble(anchor)?length:short,h:isDouble(anchor)?short:length,leg:0};const poses=Array(count);poses[anchor]=start;
   let failed=false;
   for(const side of [-1,1]){
    let previous=start,leg=0;const indices=side<0?Array.from({length:anchor},(_,i)=>anchor-1-i):Array.from({length:count-anchor-1},(_,i)=>anchor+1+i);
@@ -23,11 +23,17 @@ export function chainLayout(count,anchor,width,height,tiles=[]){
      const vertical=leg!==1;const dx=leg===1?side:0,dy=leg===0?side:leg===2?-side:0;
      const crosswise=isDouble(index),upright=vertical!==crosswise;
      const w=upright?short:length,h=upright?length:short;
-     const x=previous.x+dx*((previous.w+w)/2+gap),y=previous.y+dy*((previous.h+h)/2+gap);
-     if(x-w/2<pad||x+w/2>width-pad||y-h/2<pad||y+h/2>height-pad){leg++;continue;}
+     let x=previous.x+dx*((previous.w+w)/2+gap),y=previous.y+dy*((previous.h+h)/2+gap);
+     // A bend follows the preceding tile's far end, never its side/midpoint.
+     if(leg!==previous.leg){
+      if(previous.leg===0)y+=side*((previous.h+h)/2+gap);
+      if(previous.leg===1)x+=side*((previous.w+w)/2+gap);
+     }
+     const marginX=leg===1?pad+length:pad,marginY=leg===0?pad+length:pad;
+     if(x-w/2<marginX||x+w/2>width-marginX||y-h/2<marginY||y+h/2>height-marginY){leg++;continue;}
      if(poses.some(p=>p&&Math.abs(x-p.x)<(w+p.w)/2+1&&Math.abs(y-p.y)<(h+p.h)/2+1)){failed=true;break;}
      // Rotation follows the chain's logical order, even when the left end grows backwards.
-     const forwardY=dy*side;pose={x,y,w,h,angle:(vertical?(forwardY>0?0:180):-90)+(crosswise?90:0)};break;
+     const forwardY=dy*side;pose={x,y,w,h,leg,angle:(vertical?(forwardY>0?0:180):-90)+(crosswise?90:0)};break;
     }
     if(!pose){failed=true;break;}poses[index]=pose;previous=pose;
    }
