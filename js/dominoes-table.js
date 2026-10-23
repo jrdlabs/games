@@ -8,11 +8,12 @@ export function tileNode(tile,button=false){
  return el;
 }
 export function tileOffset(tile){const seed=Math.min(...tile)*7+Math.max(...tile);return {angle:((seed*13)%7-3)*.32,x:((seed*5)%3-1)*.35,y:((seed*11)%3-1)*.35};}
-export function chainLayout(count,anchor,width,height){
+export function chainLayout(count,anchor,width,height,tiles=[]){
  if(!count)return [];
  for(let length=Math.min(54,width/5,height/7);length>=8;length-=.5){
   const short=length/2,gap=Math.max(2,length*.09),pad=3;
-  const start={x:width/2,y:height/2,angle:0,w:short,h:length};const poses=Array(count);poses[anchor]=start;
+  const isDouble=index=>tiles[index]?.[0]===tiles[index]?.[1]&&!!tiles[index];
+  const start={x:width/2,y:height/2,angle:isDouble(anchor)?90:0,w:isDouble(anchor)?length:short,h:isDouble(anchor)?short:length};const poses=Array(count);poses[anchor]=start;
   let failed=false;
   for(const side of [-1,1]){
    let previous=start,leg=0;const indices=side<0?Array.from({length:anchor},(_,i)=>anchor-1-i):Array.from({length:count-anchor-1},(_,i)=>anchor+1+i);
@@ -20,11 +21,13 @@ export function chainLayout(count,anchor,width,height){
     let pose;
     while(leg<3){
      const vertical=leg!==1;const dx=leg===1?side:0,dy=leg===0?side:leg===2?-side:0;
-     const w=vertical?short:length,h=vertical?length:short;
+     const crosswise=isDouble(index),upright=vertical!==crosswise;
+     const w=upright?short:length,h=upright?length:short;
      const x=previous.x+dx*((previous.w+w)/2+gap),y=previous.y+dy*((previous.h+h)/2+gap);
      if(x-w/2<pad||x+w/2>width-pad||y-h/2<pad||y+h/2>height-pad){leg++;continue;}
+     if(poses.some(p=>p&&Math.abs(x-p.x)<(w+p.w)/2+1&&Math.abs(y-p.y)<(h+p.h)/2+1)){failed=true;break;}
      // Rotation follows the chain's logical order, even when the left end grows backwards.
-     const forwardY=dy*side;pose={x,y,w,h,angle:vertical?(forwardY>0?0:180):-90};break;
+     const forwardY=dy*side;pose={x,y,w,h,angle:(vertical?(forwardY>0?0:180):-90)+(crosswise?90:0)};break;
     }
     if(!pose){failed=true;break;}poses[index]=pose;previous=pose;
    }
@@ -47,7 +50,7 @@ export function createTable({board,hand,pass,choice,status,seats}){
   if(!latest||!board.clientWidth||!board.clientHeight)return;
   const state=latest,first=state.events?.find(e=>e.action==='play')?.tile;
   let anchor=first?state.board.findIndex(t=>[...t].sort().join() === [...first].sort().join()):Math.floor(state.board.length/2);if(anchor<0)anchor=Math.floor(state.board.length/2);
-  const poses=chainLayout(state.board.length,anchor,board.clientWidth,board.clientHeight);
+  const poses=chainLayout(state.board.length,anchor,board.clientWidth,board.clientHeight,state.board);
   board.replaceChildren(...state.board.map((tile,i)=>{const el=tileNode(tile);const p=poses[i],offset=tileOffset(tile);
    el.style.width=`${Math.min(p.w,p.h)}px`;el.style.height=`${Math.max(p.w,p.h)}px`;
    el.style.left=`${p.x+offset.x}px`;el.style.top=`${p.y+offset.y}px`;el.style.transform=`translate(-50%,-50%) rotate(${p.angle+offset.angle}deg)`;
