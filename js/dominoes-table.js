@@ -29,11 +29,13 @@ export function chainLayout(count,anchor,width,height,tiles=[]){
      // Align the outside edges at bends so matching end-halves meet in a clean L.
      // A whole-tile offset leaves a diagonal hole; zero offset joins at the divider.
      if(leg!==previous.leg){
-      if(previous.leg===0)y+=side*(previous.h-h)/2;
-      if(previous.leg===1)x+=side*(previous.w-w)/2;
+      if(previous.leg===0)y+=isDouble(index-side)?0:side*(previous.h-h)/2;
+      if(previous.leg===1)x+=isDouble(index-side)?0:side*(previous.w-w)/2;
      }
      const marginX=pad,marginY=pad;
-     if(x-w/2<marginX||x+w/2>width-marginX||y-h/2<marginY||y+h/2>height-marginY){leg++;continue;}
+     if(x-w/2<marginX||x+w/2>width-marginX||y-h/2<marginY||y+h/2>height-marginY){
+      // Refit before letting a double turn: it belongs on the incoming leg.
+      if(crosswise){failed=true;break;}leg++;continue;}
      if(poses.some(p=>p&&Math.abs(x-p.x)<(w+p.w)/2+1&&Math.abs(y-p.y)<(h+p.h)/2+1)){failed=true;break;}
      // Rotation follows the chain's logical order, even when the left end grows backwards.
      const forwardY=dy*side;pose={x,y,w,h,leg,angle:(vertical?(forwardY>0?0:180):-90)+(crosswise?90:0)};break;
@@ -49,6 +51,10 @@ export function chainLayout(count,anchor,width,height,tiles=[]){
 export function createTable({board,hand,pass,choice,status,seats}){
  const surface=board.closest('.felt');surface.classList.add('domino-table');
  const updateScores=createScoresheet(surface);
+ const notice=document.createElement('div');notice.className='table-notice';notice.setAttribute('role','status');notice.setAttribute('aria-live','polite');notice.hidden=true;surface.append(notice);
+ let noticeTimer,eventContext,eventCount=0,animationEvents=[];
+ const pieceKey=tile=>[...tile].sort((a,b)=>a-b).join(':');
+ const reducedMotion=()=>window.matchMedia('(prefers-reduced-motion: reduce)').matches;
  const layer=document.createElement('div');layer.className='table-seats';surface.append(layer);
  const dock=document.createElement('div');dock.className='table-hand-dock';hand.setAttribute('aria-label','Your dominoes');hand.setAttribute('role','group');dock.append(hand);surface.append(dock);
  const orderHand=createHandOrder(hand);
@@ -71,14 +77,31 @@ export function createTable({board,hand,pass,choice,status,seats}){
   const state=latest,first=state.events?.find(e=>e.action==='play')?.tile;
   let anchor=first?state.board.findIndex(t=>[...t].sort().join() === [...first].sort().join()):Math.floor(state.board.length/2);if(anchor<0)anchor=Math.floor(state.board.length/2);
   const poses=chainLayout(state.board.length,anchor,board.clientWidth,board.clientHeight,state.board);
-  board.replaceChildren(...state.board.map((tile,i)=>{const el=tileNode(tile);const p=poses[i],offset=tileOffset(tile);
+  const oldPositions=new Map([...board.children].map(el=>[el.dataset.tileKey,el.getBoundingClientRect()]));
+  board.replaceChildren(...state.board.map((tile,i)=>{const el=tileNode(tile);el.dataset.tileKey=pieceKey(tile);const p=poses[i],offset=tileOffset(tile);
    el.style.width=`${Math.min(p.w,p.h)}px`;el.style.height=`${Math.max(p.w,p.h)}px`;
    el.style.left=`${p.x+offset.x}px`;el.style.top=`${p.y+offset.y}px`;el.style.transform=`translate(-50%,-50%) rotate(${p.angle+offset.angle}deg)`;
    if(i===0||i===state.board.length-1){el.classList.add('chain-end');el.setAttribute('aria-label',`${i===0?'Left':'Right'} end: ${tile.join('–')}`);}return el;}));
+  if(!reducedMotion()){
+   for(const el of board.children){
+    const target=el.getBoundingClientRect(),played=animationEvents.find(e=>e.action==='play'&&pieceKey(e.tile)===el.dataset.tileKey);
+    const relative=played?(played.seat-state.me+4)%4:null;
+    const origin=played?surface.querySelector('.table-player--'+['bottom','left','top','right'][relative])?.getBoundingClientRect():oldPositions.get(el.dataset.tileKey);
+    if(!origin)continue;const dx=origin.x+origin.width/2-target.x-target.width/2,dy=origin.y+origin.height/2-target.y-target.height/2;
+    if(Math.abs(dx)+Math.abs(dy)>1)el.animate([{translate:`${dx}px ${dy}px`,opacity:played?.35:1},{translate:'0px 0px',opacity:1}],{duration:played?330:180,easing:'cubic-bezier(.2,.7,.25,1)'});
+   }
+  }
+  animationEvents=[];
  };
  new ResizeObserver(paint).observe(board);
  window.addEventListener('resize',()=>{fitHeight();paint();});window.visualViewport?.addEventListener('resize',()=>{fitHeight();paint();});
  return state=>{
+  const context=`${state.room}:${state.handNumber}`,events=state.events||[];
+  const fresh=context===eventContext?events.slice(eventCount):[];
+  eventContext=context;eventCount=events.length;animationEvents=fresh;
+  const passed=fresh.filter(e=>e.action==='pass');
+  if(passed.length){clearTimeout(noticeTimer);notice.textContent=passed.map(e=>`${state.players[e.seat].name} passed`).join(' · ');notice.hidden=false;noticeTimer=setTimeout(()=>notice.hidden=true,2600);}
+  else if(latest&&latest.handNumber!==state.handNumber){clearTimeout(noticeTimer);notice.hidden=true;}
   latest=state;
   fitHeight();updateScores(state);
   pass.hidden=state.phase!=='playing';

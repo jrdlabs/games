@@ -25,3 +25,9 @@
 .dominoes-playing #result{display:none}
 .dominoes-playing .page-nav,.admin-table-playing .page-nav{display:flex;align-items:center;justify-content:space-between;gap:8px}
 .scores-dialog thead th{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* Raised wooden rail; keep the playing plane flat for readable tile joins. */
+.felt.domino-table,#admin .felt.domino-table{border-color:#382216;box-shadow:inset 0 0 0 2px #ba8c56,inset 0 3px 5px #f2c38e45,inset 0 -9px 13px #10080388,0 7px 0 #21120c,0 12px 0 #160d09,0 20px 26px #0008}
+.domino-table::after{inset:7px;border-color:#f0c68c30;box-shadow:inset 0 2px 9px #0006}
+.domino-table .domino-piece{box-shadow:inset 0 1px 1px #fff9,0 2px 0 #ae9874,0 4px 5px #160b0866}
+.table-notice{position:absolute;top:143px;left:50%;transform:translateX(-50%);max-width:85%;z-index:12;padding:9px 15px;border:1px solid #c9a065;border-radius:12px;background:#21170ff2;color:#ffe2ac;font:600 13px system-ui,sans-serif;box-shadow:0 5px 15px #0006;text-align:center;pointer-events:none}

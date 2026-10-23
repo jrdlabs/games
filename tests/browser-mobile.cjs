@@ -38,17 +38,37 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new 
     await page.waitForFunction(()=>window.playChoices===1,{},{timeout:1500});
     assert.equal(await page.evaluate(()=>window.playChoices),1,'Tap should open end confirmation');
    }
+   await page.evaluate(()=>{state.events.push({action:'pass',seat:1});window.render();});
+   assert.equal(await page.locator('.table-notice').textContent(),'Chris passed');assert(await page.locator('.table-notice').isVisible());
+   await page.evaluate(()=>{state.board.push([4,3]);state.events.push({action:'play',seat:3,tile:[4,3]});window.render();});
+   assert(await page.evaluate(()=>[...document.querySelectorAll('.domino-chain .tile')].some(el=>el.getAnimations().length)),'New play did not animate');
+   await page.waitForTimeout(400);
    for(const anchor of [0,13,27]){
     await page.evaluate(anchor=>{
      const edges=[];for(let a=0;a<=6;a++)for(let b=a;b<=6;b++)edges.push([a,b]);const used=new Set(),stack=[6],circuit=[];
      while(stack.length){const v=stack.at(-1),i=edges.findIndex((e,i)=>!used.has(i)&&e.includes(v));if(i<0)circuit.push(stack.pop());else{used.add(i);stack.push(edges[i][0]===v?edges[i][1]:edges[i][0]);}}
      circuit.reverse();state.board=circuit.slice(0,-1).map((v,i)=>[v,circuit[i+1]]);state.hand=[];state.counts=[0,0,0,0];state.events=[{action:'play',tile:state.board[anchor]}];state.phase='hand_complete';state.result={winner:1};window.render();
     },anchor);
+    await page.waitForTimeout(400);
     const fits=await page.evaluate(()=>{const b=document.getElementById('board').getBoundingClientRect();return [...document.querySelectorAll('.domino-chain .tile')].every(el=>{const r=el.getBoundingClientRect();return r.left>=b.left-1&&r.right<=b.right+1&&r.top>=b.top-1&&r.bottom<=b.bottom+1;});});
     assert(fits,`Full chain clips at ${width}, anchor ${anchor}`);
    }
    assert.deepEqual(errors,[],`Browser errors at ${width}`);await context.close();
   }
-  console.log('PASS: five browser sizes, seven vertical tiles, no horizontal clipping, height fit, mouse/touch/keyboard reordering, realtime-during-drag, no accidental play, persistence and scoresheet.');
+  // Exercise the actual game page as well as the shared component, without live accounts.
+  const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:'block'});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript(()=>localStorage.setItem('dominoes.room','integration'));
+  await page.route('**/js/supabase.js',route=>route.fulfill({contentType:'text/javascript',body:`
+   export async function ensureAnonymousSession(){};
+   const state={room:'integration',code:'ABC123',revision:1,handNumber:1,me:0,turn:0,phase:'playing',scores:[0,0,0,0],players:[{name:'Joel'},{name:'Chris'},{name:'Geoff'},{name:'Mainframe'}],counts:[7,7,7,7],hand:[[6,6],[0,0],[1,1],[2,2],[3,3],[4,4],[5,5]],board:[],events:[],history:[]};
+   window.rpcCalls=0;window.blockGet=false;
+   export const supabase={rpc:async()=>{window.rpcCalls++;if(window.blockGet){window.blockGet=false;await new Promise(resolve=>window.releaseGet=resolve);}return {data:structuredClone(state)}},channel:()=>({on(type,filter,callback){window.notify=callback;return this},subscribe(){return this}})};`}));
+  await page.goto(base+'/dominoes.html');await page.locator('.table-player').first().waitFor();
+  assert.equal(await page.locator('.table-player').count(),4);assert.equal(await page.locator('.table-hand-dock .tile').count(),7);
+  assert(await page.getByRole('button',{name:'Scores',exact:true}).isVisible());
+  await page.evaluate(()=>{window.expectedCalls=window.rpcCalls+2;window.blockGet=true;window.notify();window.notify();window.releaseGet();});
+  await page.waitForFunction(()=>window.rpcCalls>=window.expectedCalls,{},{timeout:700});
+  assert.deepEqual(errors,[]);await context.close();
+  console.log('PASS: five sizes, touch/mouse/keyboard ordering, pass notices, play animations, full chains and actual game page integration.');
  }finally{await browser.close();server.close();}
 })().catch(e=>{console.error(e);server.close();process.exitCode=1;});

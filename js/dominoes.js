@@ -2,7 +2,7 @@ import { supabase, ensureAnonymousSession } from './supabase.js';
 import { fits, canPlay } from './dominoes-rules.js';
 import { tileNode, createTable } from './dominoes-table.js';
 const $ = id => document.getElementById(id);
-let state, selected, busy = false, channel, refreshing = false, sessionReady = false;
+let state, selected, busy = false, channel, refreshing = false, sessionReady = false, refreshPending = false;
 let saved = localStorage.getItem('dominoes.room');
 const error = message => { $('error').textContent = message; $('error').hidden = !message; };
 async function rpc(action, args = {}) {
@@ -28,14 +28,15 @@ async function act(action, args = {}) {
   busy = true; error(''); renderBusy();
   try { await adopt(await rpc(action, { ...args, revision: state?.revision })); selected = null; }
   catch (e) { error(e.message || 'Could not reach the table. Try again.'); await refresh(); }
-  finally { busy = false; if (state) render(); else renderBusy(); }
+  finally { busy = false; if (state) render(); else renderBusy(); if(refreshPending)refresh(); }
 }
 async function refresh() {
-  if (!state?.room || refreshing || busy) return;
-  refreshing = true;
-  try { const data = await rpc('get'); if (data.revision > state.revision) { state = data; render(); } $('connection').textContent = 'Connected'; }
+  if (!state?.room) return;
+  if (refreshing || busy) { refreshPending=true; return; }
+  refreshPending=false;refreshing = true;const requestedRoom=state.room;
+  try { const data = await rpc('get'); if (state?.room===requestedRoom && data.revision > state.revision) { state = data; render(); } $('connection').textContent = 'Connected'; }
   catch (e) { $('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
-  finally { refreshing = false; }
+  finally { refreshing = false; if(refreshPending&&!busy){refreshPending=false;queueMicrotask(refresh);} }
 }
 function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
 const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status')});
@@ -108,5 +109,5 @@ const invite = new URLSearchParams(location.search).get('room'); $('code').value
 renderBusy();
 try { await ensureAnonymousSession(); sessionReady = true; renderBusy(); $('connection').textContent = 'Ready'; $('resume').hidden = !saved; if (saved) await resume(invite); }
 catch(e) { error(`Unable to connect: ${e.message}. Reload to try again.`); }
-setInterval(refresh, 5000);
+setInterval(()=>{if(!document.hidden&&state?.room)refresh();}, 1200);
 window.addEventListener('online', refresh); document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });

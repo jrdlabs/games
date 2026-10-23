@@ -10,8 +10,10 @@ for(const [width,height] of [[170,220],[170,330],[230,420],[480,600],[700,700]])
   for(const side of [-1,1]){
    let previous=poses[anchor];
    for(let i=anchor+side;i>=0&&i<count;i+=side){const current=poses[i];
-    if(current.leg===1&&previous.leg===0)assert(Math.abs((current.y+side*current.h/2)-(previous.y+side*previous.h/2))<.01,'Corner end-halves do not align');
-    if(current.leg===2&&previous.leg===1)assert(Math.abs((current.x+side*current.w/2)-(previous.x+side*previous.w/2))<.01,'Outer corner end-halves do not align');
+    const previousDouble=deck[i-side][0]===deck[i-side][1];
+    if(current.leg!==previous.leg)assert.notEqual(deck[i][0],deck[i][1],'Double must stay before the bend');
+    if(current.leg===1&&previous.leg===0)assert(Math.abs(previousDouble?current.y-previous.y:(current.y+side*current.h/2)-(previous.y+side*previous.h/2))<.01,'Corner end-halves do not align');
+    if(current.leg===2&&previous.leg===1)assert(Math.abs(previousDouble?current.x-previous.x:(current.x+side*current.w/2)-(previous.x+side*previous.w/2))<.01,'Outer corner end-halves do not align');
     previous=current;
    }
   }
