@@ -8,4 +8,8 @@ Start the played chain vertically through the center. Extend its first end upwar
 
 Leave small visible gaps between dominoes. Add very minor hand-placed rotation and positional variation, while preserving clear chain order and readable pips. Keep those variations stable for each tile across turn updates and reconnects, rather than randomizing them on every render.
 
+At a 90-degree corner, align the outside edges so the matching end-halves meet in a continuous L. Do not connect at the preceding tile's divider, and do not offset a whole tile length to create a detached diagonal gap.
+
+Let players arrange their own hand privately using mouse/touch dragging, or selecting a tile and moving it left/right. Enter an explicit arrangement mode so a drag or selection cannot accidentally play a tile. Preserve local order through updates and reconnects, removing played tiles without changing the authoritative hand.
+
 Use the same table renderer for normal play and admin testing. Keep reveal-all-hands and test controls outside the actual tabletop. Preserve Trumps, existing room/session/realtime behavior, current house rules, and GitHub Pages compatibility. Do not use the mockup as a flat screenshot background: the tiles and controls must remain interactive.

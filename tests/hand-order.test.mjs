@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+const source=readFileSync(new URL('../js/dominoes-hand-order.js',import.meta.url),'utf8');
+const {tileKey,orderedKeys,moveKey}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+const hand=[[0,6],[2,3],[1,1],[4,5],[2,6],[0,0],[6,6]];
+const original=JSON.stringify(hand),keys=orderedKeys(hand);
+assert.equal(tileKey([6,0]),tileKey([0,6]));
+const moved=moveKey(keys,'6:6',0);assert.equal(moved[0],'6:6');assert.equal(moved.length,7);
+assert.deepEqual(orderedKeys(hand,moved),moved,'Refresh lost order');
+assert.deepEqual(orderedKeys(hand.slice(0,-1),moved),keys.slice(0,-1),'Played tile was retained');
+assert.deepEqual(orderedKeys([[6,6],[2,3]],['2:3','obsolete','2:3']),['2:3','6:6'],'Reconcile should deduplicate and append new tiles');
+assert.deepEqual(moveKey(keys,keys[0],999).at(-1),keys[0]);
+assert.equal(moveKey(keys,keys.at(-1),-2)[0],keys.at(-1));
+assert.deepEqual(moveKey(keys,'missing',0),keys);
+assert.equal(JSON.stringify(hand),original,'Reordering mutated authoritative hand');
+console.log('PASS: seven-tile reorder, reload reconciliation, played-tile removal, orientation, bounds and server-hand immutability.');

@@ -1,4 +1,5 @@
 // Shared live/admin presentation. Server rules and state remain authoritative.
+import { createHandOrder } from './dominoes-hand-order.js';
 const patterns=[[],[4],[0,8],[0,4,8],[0,2,6,8],[0,2,4,6,8],[0,2,3,5,6,8]];
 export function tileNode(tile,button=false){
  const el=document.createElement(button?'button':'div');el.className='tile domino-piece';
@@ -24,10 +25,11 @@ export function chainLayout(count,anchor,width,height,tiles=[]){
      const crosswise=isDouble(index),upright=vertical!==crosswise;
      const w=upright?short:length,h=upright?length:short;
      let x=previous.x+dx*((previous.w+w)/2+gap),y=previous.y+dy*((previous.h+h)/2+gap);
-     // A bend follows the preceding tile's far end, never its side/midpoint.
+     // Align the outside edges at bends so matching end-halves meet in a clean L.
+     // A whole-tile offset leaves a diagonal hole; zero offset joins at the divider.
      if(leg!==previous.leg){
-      if(previous.leg===0)y+=side*((previous.h+h)/2+gap);
-      if(previous.leg===1)x+=side*((previous.w+w)/2+gap);
+      if(previous.leg===0)y+=side*(previous.h-h)/2;
+      if(previous.leg===1)x+=side*(previous.w-w)/2;
      }
      const marginX=leg===1?pad+length:pad,marginY=leg===0?pad+length:pad;
      if(x-w/2<marginX||x+w/2>width-marginX||y-h/2<marginY||y+h/2>height-marginY){leg++;continue;}
@@ -47,6 +49,7 @@ export function createTable({board,hand,pass,choice,status,seats}){
  const surface=board.closest('.felt');surface.classList.add('domino-table');
  const layer=document.createElement('div');layer.className='table-seats';surface.append(layer);
  const dock=document.createElement('div');dock.className='table-hand-dock';hand.setAttribute('aria-label','Your dominoes');hand.setAttribute('role','group');dock.append(hand);surface.append(dock);
+ const orderHand=createHandOrder(hand);
  const actions=document.createElement('div');actions.className='table-actions';actions.append(pass);surface.append(actions);
  surface.append(choice);choice.classList.add('table-choice');surface.append(status);status.classList.add('table-turn-status');
  const heading=document.getElementById('hand-title')||document.querySelector('.hand-heading');if(heading)heading.hidden=true;
@@ -74,6 +77,7 @@ export function createTable({board,hand,pass,choice,status,seats}){
    if(relative!==0){const backs=document.createElement('div');backs.className='opponent-tiles';backs.setAttribute('aria-label',`${state.counts[index]} hidden tiles`);for(let n=0;n<state.counts[index];n++){const back=document.createElement('i');back.style.setProperty('--tilt',`${((n*3)%5-2)*.5}deg`);backs.append(back);}seat.append(backs);}return seat;
   }));
   hand.querySelectorAll('.tile').forEach((el,index)=>{const offset=tileOffset(state.hand[index]);el.style.setProperty('--hand-tilt',`${offset.angle}deg`);el.style.setProperty('--hand-offset',`${offset.y}px`);});
+  orderHand(state);
   paint();
  };
 }

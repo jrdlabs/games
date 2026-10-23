@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-const source=readFileSync(new URL('../js/dominoes-table.js',import.meta.url),'utf8');
+const source=readFileSync(new URL('../js/dominoes-table.js',import.meta.url),'utf8').replace(/^import .*;\r?\n/m,'');
 const {chainLayout,tileOffset}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
 const deck=Array.from({length:7},(_,a)=>Array.from({length:7-a},(_,b)=>[a,a+b])).flat();
 for(const [width,height] of [[170,220],[170,330],[230,420],[480,600],[700,700]]){
@@ -10,8 +10,8 @@ for(const [width,height] of [[170,220],[170,330],[230,420],[480,600],[700,700]])
   for(const side of [-1,1]){
    let previous=poses[anchor];
    for(let i=anchor+side;i>=0&&i<count;i+=side){const current=poses[i];
-    if(current.leg===1&&previous.leg===0)assert(side*(current.y-previous.y)>=(current.h+previous.h)/2+1,'Bend starts beside tile instead of after its end');
-    if(current.leg===2&&previous.leg===1)assert(side*(current.x-previous.x)>=(current.w+previous.w)/2+1,'Outer bend starts beside tile');
+    if(current.leg===1&&previous.leg===0)assert(Math.abs((current.y+side*current.h/2)-(previous.y+side*previous.h/2))<.01,'Corner end-halves do not align');
+    if(current.leg===2&&previous.leg===1)assert(Math.abs((current.x+side*current.w/2)-(previous.x+side*previous.w/2))<.01,'Outer corner end-halves do not align');
     previous=current;
    }
   }
