@@ -76,11 +76,7 @@ function render() {
     const who = state.result.winner;
     $('result').textContent = `${who == null ? 'Blocked hand tied — no point.' : `${state.players[who].name} wins ${state.phase === 'match_complete' ? 'the match!' : 'the hand! +1 point.'}`} ${state.result.blocked ? 'Lowest remaining pip count decides blocked hands.' : ''} ${state.phase === 'hand_complete' && state.me !== 0 ? 'Waiting for the host to deal.' : ''}`;
   }
-  $('history').replaceChildren(...state.history.map(h => {
-    const row = document.createElement('div'); row.className = 'review-row';
-    row.textContent = `Hand ${h.hand}: ${h.winner == null ? 'Tie' : state.players[h.winner].name + ' won'} · Scores ${h.scores.join(' / ')} · Remaining pips ${h.hands.map(hand => hand.reduce((sum,t)=>sum+t[0]+t[1],0)).join(' / ')}`; return row;
-  }));
-  $('events').replaceChildren(...(state.events || []).map(e => { const li = document.createElement('li'); li.textContent = `${state.players[e.seat].name} ${e.action === 'pass' ? `passed on ${e.ends.join(' / ')}` : `played ${e.tile.join('–')} ${e.end || ''}`}`; return li; }));
+
 }
 function showChoice() {
   $('choice').hidden = !selected;

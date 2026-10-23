@@ -52,7 +52,6 @@ function render() {
   $('all-hands').hidden=!state.fullHands;
   $('all-hands').replaceChildren();
   state.fullHands?.forEach((hand,i)=>{const label=document.createElement('h3');label.textContent=state.players[i].name;const row=document.createElement('div');row.className='reveal-hand';row.append(...hand.map(t=>tileNode(t)));$('all-hands').append(label,row);});
-  $('events').replaceChildren(...(state.events||[]).map(e=>{const li=document.createElement('li');li.textContent=`${state.players[e.seat].name} ${e.action==='pass'?'passed on '+e.ends.join(' / '):'played '+e.tile.join('–')}`;return li;}));
 }
 function scheduleBot(){clearTimeout(botTimer);if(allowed&&$('bots').checked&&state?.phase==='playing'&&state.turn!==Number($('seat').value))botTimer=setTimeout(()=>run('step'),900);}
 async function checkAccount() {
