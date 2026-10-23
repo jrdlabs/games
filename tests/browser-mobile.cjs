@@ -61,13 +61,29 @@ const server=http.createServer((req,res)=>{const file=path.resolve(root,'.'+new 
   await page.route('**/js/supabase.js',route=>route.fulfill({contentType:'text/javascript',body:`
    export async function ensureAnonymousSession(){};
    const state={room:'integration',code:'ABC123',revision:1,handNumber:1,me:0,turn:0,phase:'playing',scores:[0,0,0,0],players:[{name:'Joel'},{name:'Chris'},{name:'Geoff'},{name:'Mainframe'}],counts:[7,7,7,7],hand:[[6,6],[0,0],[1,1],[2,2],[3,3],[4,4],[5,5]],board:[],events:[],history:[]};
-   window.rpcCalls=0;window.blockGet=false;
-   export const supabase={rpc:async()=>{window.rpcCalls++;if(window.blockGet){window.blockGet=false;await new Promise(resolve=>window.releaseGet=resolve);}return {data:structuredClone(state)}},channel:()=>({on(type,filter,callback){window.notify=callback;return this},subscribe(){return this}})};`}));
+   window.rpcCalls=0;window.blockGet=false;window.mockState=state;
+   window.finishMatch=()=>{Object.assign(state,{phase:'match_complete',result:{winner:0},scores:[6,2,1,0],history:[{hand:6,winner:0,scores:[6,2,1,0]}],revision:state.revision+1});window.notify();};
+   export const supabase={removeChannel:async()=>{},rpc:async(name,args)=>{window.rpcCalls++;if(window.blockGet){window.blockGet=false;await new Promise(resolve=>window.releaseGet=resolve);}
+    if(args.p_action==='restart'){state.previousMatches=[{scores:state.scores,history:state.history}];Object.assign(state,{phase:'playing',scores:[0,0,0,0],history:[],result:null,handNumber:1,revision:state.revision+1});}
+    if(args.p_action==='close'){state.phase='closed';state.revision++;}
+    return {data:structuredClone(state)}},channel:()=>({on(type,filter,callback){window.notify=callback;return this},subscribe(){return this}})};`}));
   await page.goto(base+'/dominoes.html');await page.locator('.table-player').first().waitFor();
   assert.equal(await page.locator('.table-player').count(),4);assert.equal(await page.locator('.table-hand-dock .tile').count(),7);
   assert(await page.getByRole('button',{name:'Scores',exact:true}).isVisible());
   await page.evaluate(()=>{window.expectedCalls=window.rpcCalls+2;window.blockGet=true;window.notify();window.notify();window.releaseGet();});
   await page.waitForFunction(()=>window.rpcCalls>=window.expectedCalls,{},{timeout:700});
+  await page.evaluate(()=>window.finishMatch());await page.getByRole('button',{name:'Play again',exact:true}).waitFor();
+  assert(await page.getByRole('button',{name:'Close table',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Play again',exact:true}).click();await page.waitForFunction(()=>document.querySelector('.match-controls').hidden);
+  await page.getByRole('button',{name:'Scores',exact:true}).click();await page.getByRole('combobox',{name:'Choose match scores'}).selectOption('0');
+  assert.equal(await page.locator('.scores-dialog tfoot td').first().textContent(),'6','Rematch lost finished scores');await page.getByRole('button',{name:'Close',exact:true}).click();
+  await page.evaluate(()=>window.finishMatch());await page.getByRole('button',{name:'Close table',exact:true}).click();await page.waitForFunction(()=>!document.getElementById('home').hidden);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('dominoes.room')),null,'Closed table stayed saved');
+  await page.reload();await page.locator('.table-player').first().waitFor();await page.evaluate(()=>{window.mockState.me=1;window.finishMatch();});
+  await page.getByRole('button',{name:'Leave table',exact:true}).waitFor();assert(!await page.getByRole('button',{name:'Play again',exact:true}).isVisible());
+  await page.getByRole('button',{name:'Leave table',exact:true}).click();await page.waitForFunction(()=>!document.getElementById('home').hidden);
+  await page.reload();await page.locator('.table-player').first().waitFor();await page.evaluate(()=>{window.mockState.me=1;window.mockState.phase='closed';window.mockState.revision++;window.notify();});
+  await page.waitForFunction(()=>!document.getElementById('home').hidden);assert.equal(await page.evaluate(()=>localStorage.getItem('dominoes.room')),null);
   assert.deepEqual(errors,[]);await context.close();
   console.log('PASS: five sizes, touch/mouse/keyboard ordering, pass notices, play animations, full chains and actual game page integration.');
  }finally{await browser.close();server.close();}

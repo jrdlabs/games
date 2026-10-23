@@ -31,3 +31,5 @@
 .domino-table::after{inset:7px;border-color:#f0c68c30;box-shadow:inset 0 2px 9px #0006}
 .domino-table .domino-piece{box-shadow:inset 0 1px 1px #fff9,0 2px 0 #ae9874,0 4px 5px #160b0866}
 .table-notice{position:absolute;top:143px;left:50%;transform:translateX(-50%);max-width:85%;z-index:12;padding:9px 15px;border:1px solid #c9a065;border-radius:12px;background:#21170ff2;color:#ffe2ac;font:600 13px system-ui,sans-serif;box-shadow:0 5px 15px #0006;text-align:center;pointer-events:none}
+.match-controls{position:absolute;top:38%;left:50%;transform:translateX(-50%);width:min(340px,85%);box-sizing:border-box;z-index:14;padding:20px;border:1px solid #bc995e;border-radius:18px;background:#211810f5;box-shadow:0 10px 25px #0008;text-align:center}.match-controls h2{font:22px Georgia,serif;margin:0 0 10px;color:#ffe1a9}.match-controls p{font:12px/1.5 system-ui,sans-serif;color:#e2cfad}.match-controls button{min-height:44px;margin:4px;padding:10px 14px;font-size:13px}
+.scores-dialog select{max-width:100%;margin-top:12px;padding:8px 10px;border:1px solid #bc995e66;border-radius:8px;background:#453321;color:#f6e2bd;font-size:13px}

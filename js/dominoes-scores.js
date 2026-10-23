@@ -7,9 +7,14 @@ export function createScoresheet(surface){
  const dialog=document.createElement('dialog');dialog.className='scores-dialog';dialog.setAttribute('aria-label','Dominoes scoresheet');
  const top=document.createElement('div');top.className='scores-heading';const title=document.createElement('h2');title.textContent='Scoresheet';
  const close=document.createElement('button');close.type='button';close.textContent='Close';close.onclick=()=>dialog.close();top.append(title,close);
- const content=document.createElement('div');dialog.append(top,content);document.body.append(dialog);
+ const picker=document.createElement('select');picker.setAttribute('aria-label','Choose match scores');picker.hidden=true;
+ const content=document.createElement('div');dialog.append(top,picker,content);document.body.append(dialog);
+ let latest,room,previousCount=0;
+ picker.onchange=()=>paint(latest);
  button.onclick=()=>{if(!dialog.open)dialog.showModal();};
- return state=>{
+ function paint(current){
+  const archived=current.previousMatches||[],chosen=picker.value==='current'?null:archived[Number(picker.value)];
+  const state=chosen?{...current,...chosen}:current;
   button.disabled=false;
   const table=document.createElement('table');const caption=document.createElement('caption');caption.textContent=`Room ${state.code||'Test'} · First to 6 points`;table.append(caption);
   const header=document.createElement('thead'),hr=document.createElement('tr');
@@ -24,5 +29,11 @@ export function createScoresheet(surface){
   ['Total',...state.scores].forEach((value,i)=>{const cell=document.createElement(i===0?'th':'td');cell.textContent=String(value);totals.append(cell);});foot.append(totals);table.append(foot);
   const note=document.createElement('p');note.textContent=state.history?.length?'Scores show running totals after each completed hand. Gold marks the hand winner.':'No hands completed yet. Totals will appear here as you play.';
   content.replaceChildren(table,note);
+ }
+ return state=>{
+  const archived=state.previousMatches||[],reset=room!==state.room||previousCount!==archived.length,value=reset?'current':picker.value;
+  latest=state;room=state.room;previousCount=archived.length;picker.hidden=!archived.length;
+  picker.replaceChildren(...[...archived.map((_,i)=>({value:String(i),label:`Match ${i+1}`})),{value:'current',label:`Current match${archived.length?' '+(archived.length+1):''}`}].map(item=>{const option=document.createElement('option');option.value=item.value;option.textContent=item.label;return option;}));
+  picker.value=value||'current';paint(state);
  };
 }
