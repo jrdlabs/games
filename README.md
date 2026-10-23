@@ -48,6 +48,10 @@ The shared anonymous Supabase session and Dominoes-specific room ID persist in b
 
 ## Validation
 
+After a match, the host can **Play again** in the same room with the same seats and zero scores, or **Close table** for everyone. Guests can leave individually. Previous match scores remain selectable in Scores after a rematch. Closing keeps the completed record in the database, marks the table closed, and clears each browser's saved room when it receives the update; it does not delete player identities.
+
+Existing installations: run `supabase/dominoes-match-controls.sql` after the admin setup scripts. This adds only private lifecycle functions and extends the existing authenticated action dispatcher. It requires host membership, a completed match and the current revision. It is already applied to the hosted project. Run `supabase/dominoes-match-controls-test.sql` to verify restart/close permissions, score archival, opening hand and guest visibility using rolled-back fixtures.
+
 - `node tests/browser-mobile.cjs`: isolated headless Chrome component checks at 320, 360, 390, 768 and 1280 pixels. Requires Playwright and Chrome (or set `PLAYWRIGHT_PATH` to an installed Playwright module). Tests seven vertical hand tiles, clipping, viewport height, mouse/touch/keyboard order, reconnect persistence, updates during dragging, tap-vs-drag safety, full 28-tile chains, and scoresheet totals/rows. Uses only fixtures, never live rooms/accounts.
 
 - `node tests/rules.test.mjs`: opening and left/right tile choice rules.

@@ -11,12 +11,15 @@ async function rpc(action, args = {}) {
   return data;
 }
 async function adopt(data) {
+  if(data.phase==='closed'){await leaveTable(true,'The host closed the table. Create or join a game to play again.');return;}
   const changedRoom = state?.room !== data.room;
   state = data; saved = data.room; localStorage.setItem('dominoes.room', saved);
   history.replaceState(null, '', `${location.pathname}?room=${data.code}`);
   if (changedRoom) {
     if (channel) await supabase.removeChannel(channel);
+    const joinedRoom=state.room;
     channel = supabase.channel(`dominoes:${saved}`).on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'dominoes_rooms', filter: `id=eq.${saved}` }, refresh).subscribe(status => {
+      if(state?.room!==joinedRoom)return;
       $('connection').textContent = status === 'SUBSCRIBED' ? 'Live table' : 'Reconnecting…';
       if (status === 'SUBSCRIBED') refresh();
     });
@@ -34,12 +37,18 @@ async function refresh() {
   if (!state?.room) return;
   if (refreshing || busy) { refreshPending=true; return; }
   refreshPending=false;refreshing = true;const requestedRoom=state.room;
-  try { const data = await rpc('get'); if (state?.room===requestedRoom && data.revision > state.revision) { state = data; render(); } $('connection').textContent = 'Connected'; }
-  catch (e) { $('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
+  try { const data = await rpc('get'); if(state?.room!==requestedRoom)return; if (data.revision > state.revision) { if(data.phase==='closed'){await leaveTable(true,'The host closed the table. Create or join a game to play again.');return;} state = data; render(); } $('connection').textContent = 'Connected'; }
+  catch (e) { if(state?.room===requestedRoom)$('connection').textContent = navigator.onLine ? 'Retrying connection…' : 'Offline — reconnect to play'; }
   finally { refreshing = false; if(refreshPending&&!busy){refreshPending=false;queueMicrotask(refresh);} }
 }
 function renderBusy() { document.querySelectorAll('main button:not([data-install])').forEach(b => b.disabled = busy || !sessionReady); }
 const renderTable=createTable({board:$('board'),hand:$('hand'),pass:$('pass'),choice:$('choice'),status:$('status')});
+const finish=document.createElement('section');finish.className='match-controls';finish.hidden=true;finish.setAttribute('aria-label','Match finished');
+const finishTitle=document.createElement('h2'),finishNote=document.createElement('p');
+const replay=document.createElement('button');replay.textContent='Play again';replay.onclick=()=>act('restart');
+const closeTable=document.createElement('button');closeTable.textContent='Close table';closeTable.onclick=()=>act('close');
+const leave=document.createElement('button');leave.textContent='Leave table';leave.onclick=()=>leaveTable(true);
+finish.append(finishTitle,finishNote,replay,closeTable,leave);$('board').closest('.felt').append(finish);
 $('hand').addEventListener('hand-reordered',()=>{selected=null;showChoice();});
 function render() {
   if (!state) return;
@@ -55,6 +64,9 @@ function render() {
   $('lobby').hidden = !lobby; $('table').hidden = lobby;
   $('waiting').textContent = `${state.players.length}/4 seated. ${state.me === 0 ? 'Deal when everyone is here.' : 'The host will deal.'}`;
   renderBusy();
+  const complete=state.phase==='match_complete';finish.hidden=!complete;
+  replay.hidden=closeTable.hidden=state.me!==0;leave.hidden=state.me===0;
+  if(complete){finishTitle.textContent=`${state.players[state.result.winner].name} wins the match!`;finishNote.textContent=state.me===0?'Play again keeps everyone seated and starts scores at zero. Close table ends this table for everyone.':'Waiting for the host to play again or close the table. You can also leave.';}
   $('start').disabled = busy || state.me !== 0 || state.players.length !== 4;
   if (lobby) return;
   $('status').textContent = `Hand ${state.handNumber} · ${playing ? (myTurn ? 'Your turn — choose a highlighted tile' : `${state.players[state.turn].name} to play`) : state.phase === 'match_complete' ? 'Match complete' : 'Hand complete'}`;
@@ -95,7 +107,14 @@ $('start').onclick = () => act('start'); $('next').onclick = () => act('next'); 
 for (const end of ['left','right']) $(end).onclick = () => act('play', { tile: selected, end });
 $('cancel').onclick = () => { selected = null; showChoice(); };
 $('invite').onclick = async () => { try { await navigator.clipboard.writeText(`${location.origin}${location.pathname}?room=${state.code}`); $('invite').textContent = 'Copied!'; } catch { error(`Share room code: ${state.code}`); } };
-$('tables').onclick = async () => { if (channel) await supabase.removeChannel(channel); channel = null; state = null; selected = null; document.body.classList.remove('dominoes-playing'); $('room').hidden = true; $('home').hidden = false; $('resume').hidden = !saved; history.replaceState(null, '', location.pathname); };
+async function leaveTable(forget=false,note=''){
+ const oldChannel=channel;channel=null;state=null;selected=null;refreshPending=false;
+ if(forget){saved=null;localStorage.removeItem('dominoes.room');}
+ document.body.classList.remove('dominoes-playing');$('room').hidden=true;$('home').hidden=false;finish.hidden=true;$('resume').hidden=!saved;
+ $('choice').hidden=true;$('code').value='';$('connection').textContent=note||'Ready';history.replaceState(null,'',location.pathname);
+ if(oldChannel)await supabase.removeChannel(oldChannel);
+}
+$('tables').onclick=()=>leaveTable(state?.phase==='match_complete');
 async function resume(expectedCode) {
   if (!saved || busy || !sessionReady) return;
   busy = true;

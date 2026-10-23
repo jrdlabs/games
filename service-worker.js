@@ -1,4 +1,4 @@
-const CACHE_NAME = "game-room-shell-v31";
+const CACHE_NAME = "game-room-shell-v32";
 const APP_SHELL = [
   "./",
   "./index.html",
